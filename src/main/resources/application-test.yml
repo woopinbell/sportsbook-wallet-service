@@ -1,25 +1,14 @@
 spring:
-  datasource:
-    url: jdbc:tc:postgresql:16-alpine:///wallet_test?TC_REUSABLE=true
-    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
-    username: test
-    password: test
-
   jpa:
     hibernate:
       ddl-auto: validate
-
   flyway:
     enabled: true
     clean-disabled: false
-
-  kafka:
-    bootstrap-servers: ${WALLET_KAFKA_BOOTSTRAP:localhost:9092}
-
-  data:
-    redis:
-      host: ${WALLET_REDIS_HOST:localhost}
-      port: ${WALLET_REDIS_PORT:6379}
+  # datasource / data.redis / kafka are filled by @DynamicPropertySource from
+  # Testcontainers in each integration test class — leaving them unset here so
+  # a forgotten override surfaces as a NoSuchBeanDefinitionException instead of
+  # silently falling back to a stale local PostgreSQL.
 
 logging:
   level:
