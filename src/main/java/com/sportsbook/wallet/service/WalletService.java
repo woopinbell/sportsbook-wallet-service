@@ -1,5 +1,7 @@
 package com.sportsbook.wallet.service;
 
+import com.sportsbook.protocol.event.WalletCreditReason;
+import com.sportsbook.protocol.event.WalletDebitFailureReason;
 import com.sportsbook.protocol.value.IdempotencyKey;
 import com.sportsbook.protocol.value.Money;
 import com.sportsbook.wallet.domain.Account;
@@ -12,7 +14,11 @@ import com.sportsbook.wallet.domain.SystemAccountIds;
 import com.sportsbook.wallet.domain.error.AccountNotFoundException;
 import com.sportsbook.wallet.domain.error.CurrencyMismatchException;
 import com.sportsbook.wallet.domain.error.IdempotencyConflictException;
+import com.sportsbook.wallet.domain.error.InsufficientBalanceException;
 import com.sportsbook.wallet.infrastructure.id.UuidV7;
+import com.sportsbook.wallet.outbox.OutboxEvent;
+import com.sportsbook.wallet.outbox.OutboxEventRepository;
+import com.sportsbook.wallet.outbox.WalletEventFactory;
 import com.sportsbook.wallet.persistence.AccountRepository;
 import com.sportsbook.wallet.persistence.LedgerEntryRepository;
 import com.sportsbook.wallet.service.command.CreditCommand;
@@ -61,18 +67,28 @@ public class WalletService {
 
   private final AccountRepository accountRepo;
   private final LedgerEntryRepository ledgerRepo;
+  private final OutboxEventRepository outboxRepo;
+  private final WalletEventFactory events;
   private final IdempotencyCache cache;
   private final TransactionTemplate writeTx;
   private final Clock clock;
 
+  // Six dependencies but each owns a distinct concern (DB, outbox, event shape, cache, txn,
+  // clock). Bundling them behind a holder would just push the parameter pressure one layer
+  // deeper without easing the call site.
+  @SuppressWarnings("checkstyle:ParameterNumber")
   public WalletService(
       AccountRepository accountRepo,
       LedgerEntryRepository ledgerRepo,
+      OutboxEventRepository outboxRepo,
+      WalletEventFactory events,
       IdempotencyCache cache,
       TransactionTemplate writeTx,
       Clock clock) {
     this.accountRepo = accountRepo;
     this.ledgerRepo = ledgerRepo;
+    this.outboxRepo = outboxRepo;
+    this.events = events;
     this.cache = cache;
     this.writeTx = writeTx;
     this.clock = clock;
@@ -160,24 +176,44 @@ public class WalletService {
   }
 
   public WalletOperationResult debit(DebitCommand cmd) {
-    return runIdempotent(
-        cmd.idempotencyKey(),
-        cmd.userId(),
-        cmd.amount(),
-        LedgerReason.BET_DEBIT,
-        () -> {
-          Account account = lockAccount(cmd.userId(), cmd.amount());
-          Instant now = clock.instant();
-          account.moveAvailableToLocked(cmd.amount(), now);
-          return writePair(
-              new TransferLeg(cmd.userId(), BalanceBucket.LOCKED),
-              new TransferLeg(cmd.userId(), BalanceBucket.AVAILABLE),
-              cmd.amount(),
-              LedgerReason.BET_DEBIT,
-              cmd.idempotencyKey(),
-              cmd.userId(),
-              now);
-        });
+    try {
+      return runIdempotent(
+          cmd.idempotencyKey(),
+          cmd.userId(),
+          cmd.amount(),
+          LedgerReason.BET_DEBIT,
+          () -> {
+            Account account = lockAccount(cmd.userId(), cmd.amount());
+            Instant now = clock.instant();
+            account.moveAvailableToLocked(cmd.amount(), now);
+            WalletOperationResult result =
+                writePair(
+                    new TransferLeg(cmd.userId(), BalanceBucket.LOCKED),
+                    new TransferLeg(cmd.userId(), BalanceBucket.AVAILABLE),
+                    cmd.amount(),
+                    LedgerReason.BET_DEBIT,
+                    cmd.idempotencyKey(),
+                    cmd.userId(),
+                    now);
+            outboxRepo.save(
+                events.debited(
+                    cmd.userId(),
+                    cmd.amount(),
+                    cmd.idempotencyKey(),
+                    result.operationGroupId(),
+                    now));
+            return result;
+          });
+    } catch (InsufficientBalanceException e) {
+      publishDebitFailure(cmd, WalletDebitFailureReason.INSUFFICIENT_BALANCE);
+      throw e;
+    } catch (AccountNotFoundException e) {
+      publishDebitFailure(cmd, WalletDebitFailureReason.ACCOUNT_NOT_FOUND);
+      throw e;
+    } catch (CurrencyMismatchException e) {
+      publishDebitFailure(cmd, WalletDebitFailureReason.CURRENCY_MISMATCH);
+      throw e;
+    }
   }
 
   public WalletOperationResult credit(CreditCommand cmd) {
@@ -185,6 +221,10 @@ public class WalletService {
         cmd.source() == CreditCommand.Source.USER_LOCKED
             ? LedgerReason.BET_REFUND
             : LedgerReason.BET_PAYOUT;
+    WalletCreditReason avroReason =
+        cmd.source() == CreditCommand.Source.USER_LOCKED
+            ? WalletCreditReason.REFUND
+            : WalletCreditReason.PAYOUT;
     return runIdempotent(
         cmd.idempotencyKey(),
         cmd.userId(),
@@ -201,14 +241,39 @@ public class WalletService {
             account.increaseAvailable(cmd.amount(), now);
             source = new TransferLeg(SystemAccountIds.HOUSE, BalanceBucket.AVAILABLE);
           }
-          return writePair(
-              new TransferLeg(cmd.userId(), BalanceBucket.AVAILABLE),
-              source,
-              cmd.amount(),
-              reason,
-              cmd.idempotencyKey(),
-              cmd.userId(),
-              now);
+          WalletOperationResult result =
+              writePair(
+                  new TransferLeg(cmd.userId(), BalanceBucket.AVAILABLE),
+                  source,
+                  cmd.amount(),
+                  reason,
+                  cmd.idempotencyKey(),
+                  cmd.userId(),
+                  now);
+          outboxRepo.save(
+              events.credited(
+                  cmd.userId(),
+                  cmd.amount(),
+                  cmd.idempotencyKey(),
+                  result.operationGroupId(),
+                  avroReason,
+                  now));
+          return result;
+        });
+  }
+
+  /**
+   * Writes the debit-failure event in a fresh transaction so the original rolled-back attempt does
+   * not erase it. The exception that triggered this is re-raised by the caller.
+   */
+  private void publishDebitFailure(DebitCommand cmd, WalletDebitFailureReason reason) {
+    Instant now = clock.instant();
+    OutboxEvent event =
+        events.debitFailed(cmd.userId(), cmd.amount(), cmd.idempotencyKey(), reason, now);
+    writeTx.execute(
+        status -> {
+          outboxRepo.save(event);
+          return null;
         });
   }
 
