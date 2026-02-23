@@ -10,6 +10,12 @@ spring:
   # a forgotten override surfaces as a NoSuchBeanDefinitionException instead of
   # silently falling back to a stale local PostgreSQL.
 
+wallet:
+  outbox:
+    # Disable the @Scheduled drain during tests so each test controls when
+    # publishing happens (manual outboxPublisher.publishPending() call).
+    poll-interval-ms: 86400000
+
 logging:
   level:
     com.sportsbook.wallet: DEBUG
