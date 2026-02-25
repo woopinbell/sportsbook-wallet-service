@@ -16,6 +16,7 @@ import com.sportsbook.wallet.domain.error.CurrencyMismatchException;
 import com.sportsbook.wallet.domain.error.IdempotencyConflictException;
 import com.sportsbook.wallet.domain.error.InsufficientBalanceException;
 import com.sportsbook.wallet.infrastructure.id.UuidV7;
+import com.sportsbook.wallet.integrity.OperationCommitted;
 import com.sportsbook.wallet.outbox.OutboxEvent;
 import com.sportsbook.wallet.outbox.OutboxEventRepository;
 import com.sportsbook.wallet.outbox.WalletEventFactory;
@@ -32,6 +33,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -72,10 +74,11 @@ public class WalletService {
   private final IdempotencyCache cache;
   private final TransactionTemplate writeTx;
   private final Clock clock;
+  private final ApplicationEventPublisher eventPublisher;
 
-  // Six dependencies but each owns a distinct concern (DB, outbox, event shape, cache, txn,
-  // clock). Bundling them behind a holder would just push the parameter pressure one layer
-  // deeper without easing the call site.
+  // Seven dependencies but each owns a distinct concern (DB, outbox, event shape, cache, txn,
+  // clock, domain-event bus). Bundling them behind a holder would just push the parameter
+  // pressure one layer deeper without easing the call site.
   @SuppressWarnings("checkstyle:ParameterNumber")
   public WalletService(
       AccountRepository accountRepo,
@@ -84,7 +87,8 @@ public class WalletService {
       WalletEventFactory events,
       IdempotencyCache cache,
       TransactionTemplate writeTx,
-      Clock clock) {
+      Clock clock,
+      ApplicationEventPublisher eventPublisher) {
     this.accountRepo = accountRepo;
     this.ledgerRepo = ledgerRepo;
     this.outboxRepo = outboxRepo;
@@ -92,6 +96,7 @@ public class WalletService {
     this.cache = cache;
     this.writeTx = writeTx;
     this.clock = clock;
+    this.eventPublisher = eventPublisher;
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -342,6 +347,7 @@ public class WalletService {
     Pair pair = LedgerEntry.pair(destination, source, amount, reason, key, groupId, now);
     ledgerRepo.save(pair.debit());
     ledgerRepo.save(pair.credit());
+    eventPublisher.publishEvent(new OperationCommitted(groupId));
     return new WalletOperationResult(groupId, userId, amount, reason, now);
   }
 
