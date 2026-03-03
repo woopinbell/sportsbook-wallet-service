@@ -1,19 +1,44 @@
 # wallet-service
 
-> **EN — At a glance.** `wallet-service` is the double-entry ledger and account
-> leaf of the sportsbook system. It owns user balances split into
-> `available` / `locked`, exposes idempotent transfer endpoints (deposit /
-> withdraw / bet-debit / bet-payout), and guarantees the invariant *sum of all
-> ledger entries equals zero*. It depends only on `shared-protocol` — no other
-> service — and is called by `betting-service`, `settlement-service`, and
-> `gateway`. Java 17, Spring Boot 3.2, PostgreSQL 16 (`SELECT FOR UPDATE` on
-> the account row), Kafka with a transactional outbox, Redis for the
-> idempotency fast path. Performance target: 5 000 RPS debit, p99 < 50 ms,
-> zero double-spending under contention. **Baseline (dev host): 500 RPS
-> sustained with p95 ≈ 3 ms, errors 0 %; 100 concurrent debits on one user
-> never overdraw; 100 concurrent debits with the same Idempotency-Key collapse
-> to a single ledger pair.** See ADR-0003 / 0005 / 0006 / 0015 / 0016 in
-> `orchestration/docs/architecture/decisions/`.
+> **English summary**
+>
+> **What it is.** `wallet-service` is the double-entry ledger and account leaf
+> of the sportsbook microservice system. It owns user balances and every money
+> movement, recorded as matched debit/credit journal pairs whose system-wide
+> sum is always zero.
+>
+> **Architecture.** A leaf service: it depends only on `shared-protocol` and on
+> no other service. It is called by `betting-service` (bet-stake debit),
+> `settlement-service` (payout / refund credit), and `gateway` (balance reads),
+> and emits `WalletDebited` / `WalletCredited` / `WalletDebitFailed` to Kafka
+> through a transactional outbox so an event can never diverge from its ledger
+> change.
+>
+> **Features.** One account per user, split into `available` / `locked`
+> buckets so bet exposure stays inside the account. Idempotent transfers
+> (deposit / withdraw / bet-debit / bet-payout) keyed by an `Idempotency-Key`,
+> backed by a three-layer contract: a Redis fast path, a pessimistic-lock write
+> path, and DB-constraint race recovery. Dual integrity guards: an after-commit
+> invariant listener plus a daily reconciliation job.
+>
+> **Tech stack.** Java 17, Spring Boot 3.2, Maven. PostgreSQL 16 with
+> `SELECT FOR UPDATE` on the account row and Flyway migrations. Kafka + Avro
+> (no schema registry in V1). Redis for the idempotency fast path. Micrometer /
+> OpenTelemetry / Prometheus for observability.
+>
+> **Build & run.** `mvn verify` runs Spotless, Checkstyle and the test suite;
+> integration tests use Testcontainers, so Docker must be running, and
+> `shared-protocol` must be installed to mavenLocal first.
+>
+> **Performance.** Target: 5 000 RPS debit, p99 < 50 ms, zero double-spending
+> under contention. Dev-host baseline: 500 RPS sustained at p95 ≈ 3 ms with
+> 0 % errors; 100 concurrent debits on one user never overdraw; 100 same-key
+> debits collapse to a single ledger pair.
+>
+> **Limitations (V1).** No bonus accounts, no cross-currency exchange, no real
+> payment-gateway integration, no schema registry; deposit / withdraw do not
+> emit Kafka events. See ADR-0003 / 0004 / 0005 / 0006 / 0012 / 0014 / 0015 /
+> 0016 in `orchestration/docs/architecture/decisions/`.
 
 ---
 
@@ -78,7 +103,7 @@ ADR 색인은 [`orchestration/docs/architecture/decisions/`](../orchestration/do
 
 이 repo 고유 결정 (ADR 승격 후보):
 
-- **다계좌** — `available` + `locked`을 분리해 open exposure를 명시. 보너스 계좌는 V2 후보.
+- **dual-bucket 계좌** — 한 계좌를 `available` + `locked` 두 bucket으로 분리해 open exposure를 계좌 안에서 명시. 보너스 계좌(별도 bucket)는 V2 후보.
 - **잔고 = snapshot + 증분** — pure event sourcing은 read 비용이 비싸 매 잔고 조회마다 ledger 합산은 불가. snapshot column으로 O(1) read, 일일 reconciliation 배치로 audit.
 - **invariant 이중** — 매 transaction 후 listener + 일일 배치. 위반 시 즉시 알람 + 운영자가 수동 검토 (자동 거래 정지는 V2).
 
@@ -122,10 +147,12 @@ wallet-service/
 ├── src/test/java/com/sportsbook/wallet/
 ├── load-test/                k6 시나리오 + 결과 (Level 2/3 부하·정합성 증명)
 └── docs/
-    ├── commits/              ← retrospective 단계에서 작성
-    ├── notes/                ← retrospective 단계에서 작성
-    └── reflection/           ← retrospective 단계에서 작성
+    ├── README.md             문서 진입점
+    ├── commits/              dev 커밋별 문서 (000~019) + L3/L2 빠른 참조 색인
+    └── reflection/           retrospective.md + change-cost.md
 ```
+
+`docs/notes/`는 두지 않는다 (Phase 2 정책, 2026-05-29 결정). 학습 내용은 `docs/commits/NNN.md` 본문과 그 `기억/설명 Level` 색인으로 흡수한다.
 
 ## 노출 인터페이스
 
@@ -142,11 +169,11 @@ wallet-service/
 
 publish 이벤트 (Kafka, Avro):
 
-- `wallet.debited.v1` — debit 성공
-- `wallet.credited.v1` — credit/deposit/withdraw 성공
+- `wallet.debited.v1` — bet-stake debit 성공
+- `wallet.credited.v1` — credit 성공 (payout / refund). `deposit` / `withdraw`는 V1에서 이벤트를 발행하지 않는다 (베팅 saga가 보지 않는 운영성 연산이고 `WalletCredited`의 reason enum에 맞는 값이 없음 — `docs/commits/011.md` 참조)
 - `wallet.debit-failed.v1` — debit 실패 (InsufficientBalance 등)
 
-Partition key는 `userId`.
+Partition key는 `userId` (사용자별 순서 보존).
 
 ## 성능 / 부하 테스트
 
