@@ -6,7 +6,7 @@
 
 ## 문서 범위
 
-문서 대상은 `main`의 dev 커밋 중 기능, 테스트, 빌드 흐름을 다룬 커밋이다. 공개 README를 다듬은 커밋(`993314a docs(readme): add performance section`)과 retrospective 산출물 커밋(`docs(reflection)`, `docs(commits)`)은 색인에서 제외한다. dev 커밋 22개 중 README 정리 1개를 빼고 21개를 `000.md`부터 `020.md`까지 번호 순으로 매핑했다. 마지막 `020`은 dev 단계가 아니라 Phase 5 전체 스택 통합에서 드러난 LOST 정산 leg를 채운 커밋이다.
+문서 대상은 `main`의 dev 커밋 중 기능, 테스트, 빌드 흐름을 다룬 커밋이다. 공개 README를 다듬은 커밋(`57800a5 docs(readme): add performance section`)과 retrospective 산출물 커밋(`docs(reflection)`, `docs(commits)`)은 색인에서 제외한다. dev 커밋 22개 중 README 정리 1개를 빼고 21개를 `000.md`부터 `020.md`까지 번호 순으로 매핑했다. 마지막 `020`은 dev 단계가 아니라 Phase 5 전체 스택 통합에서 드러난 LOST 정산 leg를 채운 커밋이다.
 
 ## 읽는 방법
 
@@ -18,27 +18,27 @@
 
 | 번호 | 해시 | 주제 |
 |------|------|------|
-| [000](000.md) | `85ad777` | chore(project): wallet-service 골격 초기화 |
-| [001](001.md) | `4cf2714` | feat(domain): Account 집합체 (available + locked) |
-| [002](002.md) | `2730a85` | feat(domain): LedgerEntry 분개장 (double-entry) |
-| [003](003.md) | `d2ac619` | build(flyway): V1 스키마 (account + ledger_entry) |
-| [004](004.md) | `b9c20f9` | test(domain): 도메인 단위 테스트 |
-| [005](005.md) | `8754a42` | feat(repository): AccountRepository 비관적 락 |
-| [006](006.md) | `d164c26` | feat(repository): LedgerEntryRepository 읽기 |
-| [007](007.md) | `61c239c` | feat(service): WalletService 멱등 전송 primitive |
-| [008](008.md) | `a136cfc` | test(service): Testcontainers 통합 테스트 |
-| [009](009.md) | `33b74e2` | build(flyway): V2 스키마 (outbox_event) |
-| [010](010.md) | `5bb9166` | feat(outbox): OutboxEvent entity + publisher |
-| [011](011.md) | `e35d29f` | feat(events): 결과 이벤트 발행 배선 |
-| [012](012.md) | `ed9cbe4` | test(outbox): 원자성 + end-to-end 발행 |
-| [013](013.md) | `e658da1` | feat(api): /internal/v1/wallet REST 표면 |
-| [014](014.md) | `1efa4fd` | feat(api): RFC 7807 ProblemDetail 매핑 |
-| [015](015.md) | `17bc937` | test(api): @WebMvcTest |
-| [016](016.md) | `8d5072d` | feat(integrity): after-commit InvariantChecker |
-| [017](017.md) | `1d64711` | feat(scheduler): DailyReconciliationJob |
-| [018](018.md) | `6ad1ca5` | test(integrity): drift 탐지 |
-| [019](019.md) | `3fa464a` | test(load): k6 baseline |
-| [020](020.md) | `eddb844` | feat(wallet): forfeit — 패배 스테이크 locked→house (V3) · Phase 5 통합 |
+| [000](000.md) | `7f54434` | chore(project): wallet-service 골격 초기화 |
+| [001](001.md) | `34c59e6` | feat(domain): Account 집합체 (available + locked) |
+| [002](002.md) | `62d6247` | feat(domain): LedgerEntry 분개장 (double-entry) |
+| [003](003.md) | `ec94e6d` | build(flyway): V1 스키마 (account + ledger_entry) |
+| [004](004.md) | `fe4d81f` | test(domain): 도메인 단위 테스트 |
+| [005](005.md) | `6348505` | feat(repository): AccountRepository 비관적 락 |
+| [006](006.md) | `68e3f49` | feat(repository): LedgerEntryRepository 읽기 |
+| [007](007.md) | `92c6564` | feat(service): WalletService 멱등 전송 primitive |
+| [008](008.md) | `e8ac469` | test(service): Testcontainers 통합 테스트 |
+| [009](009.md) | `ff3bff4` | build(flyway): V2 스키마 (outbox_event) |
+| [010](010.md) | `2d788d2` | feat(outbox): OutboxEvent entity + publisher |
+| [011](011.md) | `0f47f0c` | feat(events): 결과 이벤트 발행 배선 |
+| [012](012.md) | `6d5c05c` | test(outbox): 원자성 + end-to-end 발행 |
+| [013](013.md) | `497c18e` | feat(api): /internal/v1/wallet REST 표면 |
+| [014](014.md) | `445e92c` | feat(api): RFC 7807 ProblemDetail 매핑 |
+| [015](015.md) | `d81b9a4` | test(api): @WebMvcTest |
+| [016](016.md) | `809292f` | feat(integrity): after-commit InvariantChecker |
+| [017](017.md) | `b1ac969` | feat(scheduler): DailyReconciliationJob |
+| [018](018.md) | `d26a268` | test(integrity): drift 탐지 |
+| [019](019.md) | `5915efb` | test(load): k6 baseline |
+| [020](020.md) | `95b8a60` | feat(wallet): forfeit — 패배 스테이크 locked→house (V3) · Phase 5 통합 |
 
 ## 작성 규칙
 
