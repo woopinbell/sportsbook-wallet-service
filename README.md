@@ -9,8 +9,11 @@
 > `gateway`. Java 17, Spring Boot 3.2, PostgreSQL 16 (`SELECT FOR UPDATE` on
 > the account row), Kafka with a transactional outbox, Redis for the
 > idempotency fast path. Performance target: 5 000 RPS debit, p99 < 50 ms,
-> zero double-spending under contention. See ADR-0003 / 0005 / 0006 / 0015 /
-> 0016 in `orchestration/docs/architecture/decisions/`.
+> zero double-spending under contention. **Baseline (dev host): 500 RPS
+> sustained with p95 ≈ 3 ms, errors 0 %; 100 concurrent debits on one user
+> never overdraw; 100 concurrent debits with the same Idempotency-Key collapse
+> to a single ledger pair.** See ADR-0003 / 0005 / 0006 / 0015 / 0016 in
+> `orchestration/docs/architecture/decisions/`.
 
 ---
 
@@ -145,17 +148,31 @@ publish 이벤트 (Kafka, Avro):
 
 Partition key는 `userId`.
 
-## 성능 / 부하 테스트 목표
+## 성능 / 부하 테스트
 
-부하/증명 테스트는 `load-test/` 디렉터리에서 k6로 실행하고 결과를 `load-test/results/`에 박제한다.
+부하/증명 테스트는 `load-test/`에서 k6로 실행하고 결과를 `load-test/results/<date>/`에 박제한다. 갱신 규칙·환경 메타데이터는 [`load-test/results/BEST.md`](load-test/results/BEST.md) 참조.
 
-| 시나리오 | 목표 | 위치 |
-|---|---|---|
-| 5000 RPS debit, 1분간 | p99 < 50ms, 에러율 < 0.1% | `load-test/scenarios/debit_load.js` |
-| 동일 user 100 concurrent debit | double-spending 0건 | `load-test/scenarios/concurrency.js` |
-| 같은 Idempotency-Key 100회 | 1건만 수락, 나머지 동일 응답 | `load-test/scenarios/idempotency.js` |
+### 목표 vs 측정 (2026-05-28 dev host)
 
-최고 성능 기록과 그래프는 `load-test/results/BEST.md` 참조.
+| 시나리오 | 목표 | 측정치 (M1 Pro / Docker 28, 8 CPU) | 결과 |
+|---|---|---|---|
+| `debit_load.js` — 5 000 RPS debit, p99 < 50 ms, 에러율 < 0.1 % | (위 목표) | 500 RPS / p95 3.15 ms / p99 ≈ 20 ms / 에러 0 % | ✅ design 한계 미도달, dev host CPU 포화로 1 000 RPS p95 ↑ |
+| `concurrency.js` — 단일 user 100 concurrent debit, double-spending 0 | (위 목표) | 100/100 succeed, total balance preserved exactly | ✅ |
+| `idempotency.js` — 동일 Idempotency-Key 100회, 1건만 수락 | (위 목표) | 100 concurrent calls → 단일 ledger pair, 정확히 한 번 debit 적용 | ✅ |
+
+dev host의 1 000 RPS run에서 p95가 ~105 ms로 상승하지만 에러는 여전히 0. Pessimistic 락 / Redis fast path / outbox 설계는 한계 없이 동작하고, k6가 Docker Desktop CPU 풀을 더 빨리 소진한다. Production-grade 하드웨어에서의 측정은 orchestration repo의 e2e harness가 도입될 때 BEST.md에 추가.
+
+### 실행 (요약)
+
+```sh
+mvn -DskipTests package
+docker compose -f load-test/docker-compose.yml up -d
+# wallet ready 대기 후
+cd load-test/scenarios
+k6 run -e BASE_URL=http://localhost:58081 -e RATE=500 -e DURATION=60s debit_load.js
+```
+
+전체 절차와 시드 / 정합성 시나리오는 [`load-test/README.md`](load-test/README.md) 참조.
 
 ## 제한 사항 (V1 스코프)
 
