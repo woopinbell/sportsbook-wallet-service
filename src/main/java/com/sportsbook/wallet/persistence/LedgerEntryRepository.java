@@ -1,9 +1,12 @@
 package com.sportsbook.wallet.persistence;
 
+import com.sportsbook.wallet.domain.BalanceBucket;
 import com.sportsbook.wallet.domain.LedgerEntry;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /**
  * Spring Data JPA repository for {@link LedgerEntry}. The table is append-only by design; this
@@ -26,4 +29,27 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, UUID> 
 
   /** All entries for a single account, oldest first. */
   List<LedgerEntry> findByAccountIdOrderByCreatedAtAsc(UUID accountId);
+
+  /** Both entries of a matched pair under one operation_group_id. */
+  List<LedgerEntry> findByOperationGroupId(UUID operationGroupId);
+
+  /**
+   * Net of {@code DEBIT − CREDIT} amounts for one (account, bucket). Should reconcile against the
+   * matching {@link com.sportsbook.wallet.domain.Account} bucket balance — used by the daily
+   * reconciliation job.
+   */
+  @Query(
+      "select coalesce(sum(case when l.side = com.sportsbook.wallet.domain.LedgerSide.DEBIT "
+          + "then l.money.amount else -l.money.amount end), 0) "
+          + "from LedgerEntry l "
+          + "where l.accountId = :accountId and l.bucket = :bucket")
+  long netByAccountAndBucket(
+      @Param("accountId") UUID accountId, @Param("bucket") BalanceBucket bucket);
+
+  /** System-wide {@code DEBIT − CREDIT} sum; should always be zero (ADR-0005). */
+  @Query(
+      "select coalesce(sum(case when l.side = com.sportsbook.wallet.domain.LedgerSide.DEBIT "
+          + "then l.money.amount else -l.money.amount end), 0) "
+          + "from LedgerEntry l")
+  long netSumAll();
 }
