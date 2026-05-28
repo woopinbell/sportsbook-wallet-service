@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:16-alpine:///wallet_test?TC_REUSABLE=true
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    username: test
+    password: test
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+  flyway:
+    enabled: true
+    clean-disabled: false
+
+  kafka:
+    bootstrap-servers: ${WALLET_KAFKA_BOOTSTRAP:localhost:9092}
+
+  data:
+    redis:
+      host: ${WALLET_REDIS_HOST:localhost}
+      port: ${WALLET_REDIS_PORT:6379}
+
+logging:
+  level:
+    com.sportsbook.wallet: DEBUG
