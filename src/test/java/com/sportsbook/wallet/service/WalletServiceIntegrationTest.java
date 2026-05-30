@@ -18,6 +18,7 @@ import com.sportsbook.wallet.persistence.LedgerEntryRepository;
 import com.sportsbook.wallet.service.command.CreditCommand;
 import com.sportsbook.wallet.service.command.DebitCommand;
 import com.sportsbook.wallet.service.command.DepositCommand;
+import com.sportsbook.wallet.service.command.ForfeitCommand;
 import com.sportsbook.wallet.service.command.OpenAccountCommand;
 import com.sportsbook.wallet.service.command.WithdrawCommand;
 import java.util.ArrayList;
@@ -148,6 +149,24 @@ class WalletServiceIntegrationTest {
           ledgerRepo.findAll().stream().mapToLong(WalletServiceIntegrationTest::signed).sum();
       assertThat(net).isZero();
     }
+
+    @Test
+    void forfeit_captures_locked_stake_to_house() {
+      walletService.deposit(new DepositCommand(userId, krw(100_000), randomKey("dep")));
+      walletService.debit(new DebitCommand(userId, krw(30_000), randomKey("bet")));
+
+      WalletOperationResult result =
+          walletService.forfeit(new ForfeitCommand(userId, krw(30_000), randomKey("loss")));
+
+      assertThat(result.reason()).isEqualTo(LedgerReason.BET_FORFEIT);
+      Account after = accountRepo.findById(userId).orElseThrow();
+      assertThat(after.locked()).as("staked amount captured out of locked").isEqualTo(krw(0));
+      assertThat(after.available()).as("available untouched by the forfeit").isEqualTo(krw(70_000));
+      // ledger sum still zero — the HOUSE DEBIT balances the user LOCKED credit.
+      long net =
+          ledgerRepo.findAll().stream().mapToLong(WalletServiceIntegrationTest::signed).sum();
+      assertThat(net).isZero();
+    }
   }
 
   @Nested
@@ -165,6 +184,20 @@ class WalletServiceIntegrationTest {
       assertThat(ledgerRepo.findAll().stream().filter(e -> e.accountId().equals(userId)).count())
           .as("only the original deposit pair should exist on this user")
           .isEqualTo(1L);
+    }
+
+    @Test
+    void forfeit_above_locked_rejects_and_writes_no_entry() {
+      walletService.deposit(new DepositCommand(userId, krw(10_000), randomKey("dep")));
+      walletService.debit(new DebitCommand(userId, krw(4_000), randomKey("bet")));
+
+      assertThatThrownBy(
+              () -> walletService.forfeit(new ForfeitCommand(userId, krw(5_000), randomKey("over"))))
+          .isInstanceOf(InsufficientBalanceException.class);
+
+      Account after = accountRepo.findById(userId).orElseThrow();
+      assertThat(after.available()).isEqualTo(krw(6_000));
+      assertThat(after.locked()).as("locked stake untouched by the rejected forfeit").isEqualTo(krw(4_000));
     }
 
     @Test

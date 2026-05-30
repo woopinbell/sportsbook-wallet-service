@@ -14,5 +14,7 @@ public enum LedgerReason {
   /** Profit paid out by the house when a bet wins. */
   BET_PAYOUT,
   /** Stake returned from locked back to available (void / push / cancelled event). */
-  BET_REFUND
+  BET_REFUND,
+  /** Stake forfeited from the user's locked bucket to the house when a bet loses. */
+  BET_FORFEIT
 }

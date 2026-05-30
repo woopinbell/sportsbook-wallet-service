@@ -12,6 +12,7 @@ import com.sportsbook.wallet.service.WalletService;
 import com.sportsbook.wallet.service.command.CreditCommand;
 import com.sportsbook.wallet.service.command.DebitCommand;
 import com.sportsbook.wallet.service.command.DepositCommand;
+import com.sportsbook.wallet.service.command.ForfeitCommand;
 import com.sportsbook.wallet.service.command.OpenAccountCommand;
 import com.sportsbook.wallet.service.command.WithdrawCommand;
 import jakarta.validation.Valid;
@@ -89,5 +90,14 @@ public class WalletController {
         walletService.credit(
             new CreditCommand(
                 req.userId(), req.amount(), req.source(), IdempotencyKey.of(idempotencyKey))));
+  }
+
+  @PostMapping("/transactions/forfeit")
+  public WalletOperationResponse forfeit(
+      @Valid @RequestBody TransactionRequest req,
+      @RequestHeader("Idempotency-Key") String idempotencyKey) {
+    return WalletOperationResponse.from(
+        walletService.forfeit(
+            new ForfeitCommand(req.userId(), req.amount(), IdempotencyKey.of(idempotencyKey))));
   }
 }

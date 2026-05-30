@@ -25,6 +25,7 @@ import com.sportsbook.wallet.persistence.LedgerEntryRepository;
 import com.sportsbook.wallet.service.command.CreditCommand;
 import com.sportsbook.wallet.service.command.DebitCommand;
 import com.sportsbook.wallet.service.command.DepositCommand;
+import com.sportsbook.wallet.service.command.ForfeitCommand;
 import com.sportsbook.wallet.service.command.OpenAccountCommand;
 import com.sportsbook.wallet.service.command.WithdrawCommand;
 import java.time.Clock;
@@ -264,6 +265,34 @@ public class WalletService {
                   avroReason,
                   now));
           return result;
+        });
+  }
+
+  /**
+   * Captures a losing bet's staked {@code amount} from the user's locked bucket into the HOUSE
+   * system account (settlement's LOST path). The mirror of the BET_DEBIT staging at placement:
+   * where a win refunds locked-&gt;available and pays profit from house, a loss moves the held stake
+   * locked-&gt;house so it leaves the user's account. Idempotent on the caller's key like every other
+   * operation; no business-rejection branch (the locked bucket already holds the stake).
+   */
+  public WalletOperationResult forfeit(ForfeitCommand cmd) {
+    return runIdempotent(
+        cmd.idempotencyKey(),
+        cmd.userId(),
+        cmd.amount(),
+        LedgerReason.BET_FORFEIT,
+        () -> {
+          Account account = lockAccount(cmd.userId(), cmd.amount());
+          Instant now = clock.instant();
+          account.forfeitLocked(cmd.amount(), now);
+          return writePair(
+              new TransferLeg(SystemAccountIds.HOUSE, BalanceBucket.AVAILABLE),
+              new TransferLeg(cmd.userId(), BalanceBucket.LOCKED),
+              cmd.amount(),
+              LedgerReason.BET_FORFEIT,
+              cmd.idempotencyKey(),
+              cmd.userId(),
+              now);
         });
   }
 

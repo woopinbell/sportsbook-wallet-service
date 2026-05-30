@@ -24,6 +24,7 @@ import com.sportsbook.wallet.service.WalletService;
 import com.sportsbook.wallet.service.command.CreditCommand;
 import com.sportsbook.wallet.service.command.DebitCommand;
 import com.sportsbook.wallet.service.command.DepositCommand;
+import com.sportsbook.wallet.service.command.ForfeitCommand;
 import com.sportsbook.wallet.service.command.OpenAccountCommand;
 import java.time.Instant;
 import java.util.UUID;
@@ -240,6 +241,31 @@ class WalletControllerTest {
                         + "\"source\":\"HOUSE_POOL\"}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.reason").value("BET_PAYOUT"));
+  }
+
+  // -----------------------------------------------------------------------------------------------
+  // forfeit — lost-stake capture (locked -> house)
+  // -----------------------------------------------------------------------------------------------
+
+  @Test
+  @DisplayName("POST /transactions/forfeit — 200 with reason BET_FORFEIT")
+  void forfeit_ok() throws Exception {
+    UUID groupId = UUID.fromString("00000000-0000-7000-8000-00000000f0f0");
+    given(walletService.forfeit(any(ForfeitCommand.class)))
+        .willReturn(
+            new WalletOperationResult(groupId, USER, krw(10_000), LedgerReason.BET_FORFEIT, AT));
+
+    mvc.perform(
+            post("/internal/v1/wallet/transactions/forfeit")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("Idempotency-Key", "settle:forfeit:bet-1")
+                .content(
+                    "{\"userId\":\""
+                        + USER
+                        + "\",\"amount\":{\"amount\":10000,\"currency\":\"KRW\"}}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.operationGroupId").value(groupId.toString()))
+        .andExpect(jsonPath("$.reason").value("BET_FORFEIT"));
   }
 
   // -----------------------------------------------------------------------------------------------
