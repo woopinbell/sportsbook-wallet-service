@@ -6,7 +6,7 @@
 
 ## 문서 범위
 
-문서 대상은 `main`의 dev 커밋 중 기능, 테스트, 빌드 흐름을 다룬 커밋이다. 공개 README를 다듬은 커밋(`57800a5 docs(readme): add performance section`)과 retrospective 산출물 커밋(`docs(notes)`, `docs(commits)`, `docs(practice)`)은 색인에서 제외한다. dev 커밋 22개 중 README 정리 1개를 빼고 21개를 `000.md`부터 `020.md`까지 번호 순으로 매핑했다. 마지막 `020`은 dev 단계가 아니라 Phase 5 전체 스택 통합에서 드러난 LOST 정산 leg를 채운 커밋이다.
+문서 대상은 `main`의 dev 커밋 중 기능, 테스트, 빌드 흐름을 다룬 커밋이다. 공개 README를 다듬은 커밋(`57800a5 docs(readme): add performance section`)과 retrospective 산출물 커밋(`docs(notes)`, `docs(commits)`, `docs(practice)`)은 색인에서 제외한다. dev 커밋 22개 중 README 정리 1개를 빼고 21개를 `000.md`부터 `020.md`까지 번호 순으로 매핑했다. 마지막 `020`은 dev 단계가 아니라 Phase 5 전체 스택 통합에서 드러난 LOST 정산 leg를 채운 커밋이다. `021`부터는 phase 2(후속 윈도우)의 커밋이다 — 목차 아래 phase 경계 참조.
 
 ## 읽는 방법
 
@@ -39,6 +39,10 @@
 | [018](018.md) | `d26a268` | test(integrity): drift 탐지 |
 | [019](019.md) | `5915efb` | test(load): k6 baseline |
 | [020](020.md) | `95b8a60` | feat(wallet): forfeit — 패배 스테이크 locked→house (V3) · Phase 5 통합 |
+| [021](021.md) | `28e681f` | build(maven): maven wrapper 체크인 — 균일 빌드 · phase 2 |
+
+> **phase 경계**: ~020 + retrospective 메타 = phase 1. **[021]부터 phase 2**(후속 윈도우,
+> 2026-06-11 시작, 시작 커밋 `28e681f`) — 경계 규정은 commit-policy.md §날짜·배치(phase 단위).
 
 ## 작성 규칙
 
