@@ -6,11 +6,11 @@
 
 ## 문서 범위
 
-문서 대상은 `main`의 dev 커밋 중 기능, 테스트, 빌드 흐름을 다룬 커밋이다. 공개 README를 다듬은 커밋(`57800a5 docs(readme): add performance section`)과 retrospective 산출물 커밋(`docs(reflection)`, `docs(commits)`)은 색인에서 제외한다. dev 커밋 22개 중 README 정리 1개를 빼고 21개를 `000.md`부터 `020.md`까지 번호 순으로 매핑했다. 마지막 `020`은 dev 단계가 아니라 Phase 5 전체 스택 통합에서 드러난 LOST 정산 leg를 채운 커밋이다.
+문서 대상은 `main`의 dev 커밋 중 기능, 테스트, 빌드 흐름을 다룬 커밋이다. 공개 README를 다듬은 커밋(`57800a5 docs(readme): add performance section`)과 retrospective 산출물 커밋(`docs(notes)`, `docs(commits)`, `docs(practice)`)은 색인에서 제외한다. dev 커밋 22개 중 README 정리 1개를 빼고 21개를 `000.md`부터 `020.md`까지 번호 순으로 매핑했다. 마지막 `020`은 dev 단계가 아니라 Phase 5 전체 스택 통합에서 드러난 LOST 정산 leg를 채운 커밋이다.
 
 ## 읽는 방법
 
-처음 보는 독자는 `000.md`부터 번호 순서대로 읽는다. 각 문서는 `## 개요` → `## 작업 순서` → `## 작업 내역` → `## 결과` → `## 요약` → `## 다음 작업` → `## 핵심 확인` → `## 기억/설명 Level` 순서다. `## 작업 내역`의 코드 스니펫은 그 커밋이 도입한 핵심 시그니처나 흐름만 담는다. 전체 파일을 옮기지 않는다.
+처음 보는 독자는 `000.md`부터 번호 순서대로 읽는다. 각 문서는 `## 개요` → `## 작업 순서` → `## 작업 내역` → `## 결과` → `## 요약` → `## 다음 작업` → `## 핵심 확인` → `## 기억/설명 Level` 순서이고, 실체 있는 커밋 답지(`001`–`020`)는 끝에 `## diff 반영 점검`(변경 파일 누락 검산)을 더한다. `## 작업 내역`의 코드 스니펫은 그 커밋이 도입한 핵심 시그니처나 흐름만 담는다. 전체 파일을 옮기지 않는다.
 
 면접·복기처럼 색인이 먼저 필요한 자리는 아래 `## L3 빠른 참조` / `## L2 빠른 참조`로 진입한다.
 
@@ -99,6 +99,7 @@
 - [006](006.md): 세 파생 쿼리가 받치는 경로(재시도 복구 / Redis probe / reconciliation 스캔)
 - [007](007.md): `runIdempotent` 분기 흐름, `openAccount` PK 경합 처리, `Clock` 주입
 - [008](008.md): `@Testcontainers` + `@DynamicPropertySource` 배선과 빈 datasource 기본값의 의도
+- [009](009.md): partition_key에 userId를 담아 사용자별 파티션 순서를 보존하는 설계, partial index가 미발행 행만 인덱싱해 작게 유지되는 이유
 - [010](010.md): `@Scheduled` + `Pageable` 배치 구성, `markPublished` 멱등성
 - [011](011.md): `WalletEventFactory` 토픽/스키마/파티션 키 규약과 deposit/withdraw 미발행 근거
 - [012](012.md): 자동 발행 tick park 이유와 다섯 테스트 흐름
