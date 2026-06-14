@@ -44,6 +44,8 @@
 
 ## 시스템에서의 위치
 
+> 시스템 전체 설계는 orchestration 레포의 docs/DESIGN.md에 있습니다.
+
 `wallet-service`는 9개 repo로 구성된 sportsbook 시스템의 **leaf 서비스**다. 다른
 어떤 서비스에도 의존하지 않고 `shared-protocol`(공통 DTO/이벤트/value object)만
 의존한다. 시스템에서 자금이 움직이는 모든 경로의 종착점이자 출발점이라서, 가장
@@ -60,7 +62,9 @@
 ```
 
 상세 의존성 그래프와 cross-cutting 결정은 상위 폴더의
-[`sportsbook/CLAUDE.md`](../CLAUDE.md) 와 ADR 디렉터리를 참조한다.
+`sportsbook/CLAUDE.md` 와 ADR 디렉터리를 참조한다. (ADR 본문은 orchestration
+repo의 `docs/architecture/decisions/`에 있다 — 이 leaf repo가 독립 push되면
+레포 밖 상대 경로는 해석되지 않으므로 링크 대신 경로만 남긴다.)
 
 ## 책임 범위
 
@@ -85,21 +89,22 @@
 
 ## 결정 사항 (요약)
 
-ADR 색인은 [`orchestration/docs/architecture/decisions/`](../orchestration/docs/architecture/decisions/)
-에서 본문 확인. 이 repo에 직접 적용되는 결정:
+ADR 본문은 orchestration 레포의 `docs/architecture/decisions/`에서 확인한다
+(아래 표의 출처 열은 ADR 번호만 표기 — 레포 밖 경로라 링크는 두지 않는다).
+이 repo에 직접 적용되는 결정:
 
 | 항목 | 결정 | 출처 |
 |---|---|---|
-| 스택 | Java 17 + Spring Boot 3.2.x + Maven | [ADR-0015](../orchestration/docs/architecture/decisions/0015-stack-pivot-to-java.md) |
-| Money | `Money(long amount, Currency currency)` minor units | [ADR-0003](../orchestration/docs/architecture/decisions/0003-type-system-primitives.md) |
-| Time | `Instant` UTC | [ADR-0003](../orchestration/docs/architecture/decisions/0003-type-system-primitives.md) |
-| ID | UUID v7 | [ADR-0003](../orchestration/docs/architecture/decisions/0003-type-system-primitives.md) |
-| API | `/internal/v1/wallet/*`, RFC 7807 ProblemDetail, camelCase | [ADR-0004](../orchestration/docs/architecture/decisions/0004-api-conventions.md) |
-| DB | PostgreSQL 16 + Flyway, READ COMMITTED + `SELECT FOR UPDATE` on account | [ADR-0005](../orchestration/docs/architecture/decisions/0005-persistence-patterns.md) |
-| 멱등성 | DB unique on `idempotency_key` + Redis SETNX 가속 | [ADR-0005](../orchestration/docs/architecture/decisions/0005-persistence-patterns.md) |
-| 메시징 | Kafka + Avro + transactional outbox | [ADR-0006](../orchestration/docs/architecture/decisions/0006-messaging-and-saga.md) |
-| 관측성 | JSON logback + Micrometer/OTel + Prometheus | [ADR-0007](../orchestration/docs/architecture/decisions/0007-observability.md) |
-| 언어 | commit/code/주석/API 메시지 영어, 한국어는 docs/ | [ADR-0016](../orchestration/docs/architecture/decisions/0016-english-deliverable-policy.md) |
+| 스택 | Java 17 + Spring Boot 3.2.x + Maven | ADR-0015 |
+| Money | `Money(long amount, Currency currency)` minor units | ADR-0003 |
+| Time | `Instant` UTC | ADR-0003 |
+| ID | UUID v7 | ADR-0003 |
+| API | `/internal/v1/wallet/*`, RFC 7807 ProblemDetail, camelCase | ADR-0004 |
+| DB | PostgreSQL 16 + Flyway, READ COMMITTED + `SELECT FOR UPDATE` on account | ADR-0005 |
+| 멱등성 | DB unique on `idempotency_key` + Redis SETNX 가속 | ADR-0005 |
+| 메시징 | Kafka + Avro + transactional outbox | ADR-0006 |
+| 관측성 | JSON logback + Micrometer/OTel + Prometheus | ADR-0007 |
+| 언어 | commit/code/주석/API 메시지 영어, 한국어는 docs/ | ADR-0016 |
 
 이 repo 고유 결정 (ADR 승격 후보):
 
@@ -203,7 +208,7 @@ k6 run -e BASE_URL=http://localhost:58081 -e RATE=500 -e DURATION=60s debit_load
 
 ## 제한 사항 (V1 스코프)
 
-상위 [ADR-0012](../orchestration/docs/architecture/decisions/0012-v1-scope-decisions.md)의 의도적 제외 항목과 일치:
+상위 ADR-0012의 의도적 제외 항목과 일치:
 
 - **보너스 / free bet / promotion 계좌** — V2 후보
 - **다국적 통화 환전 hot path** — KRW + USD 둘 다 지원하지만 사용자 계좌는 단일 통화 (cross-currency transfer 없음). 환율은 mock.
